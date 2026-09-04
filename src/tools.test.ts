@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { ToolDefinition } from "@barry/tools";
+import type { ToolDefinition } from "@barry-rocks/tools";
 import * as tools from "./tools.js";
 
 // Object.values() over a module namespace yields a union of every export
