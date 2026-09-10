@@ -1,6 +1,6 @@
 import { defineTool } from "@barry-rocks/tools";
 import { z } from "zod";
-import { runClickHouseCtl, isClickHouseCtlInstalled } from "./exec.js";
+import { runClickHouseCtl, clickHouseCtlAvailability } from "./exec.js";
 
 // ── Status ──────────────────────────────────────────────────────────────────
 
@@ -12,11 +12,19 @@ export const clickhousectlStatus = defineTool({
     "Check whether clickhousectl is installed, its version, and cloud auth status.",
   schema: {},
   handler: async () => {
-    const installed = await isClickHouseCtlInstalled();
-    if (!installed) {
+    const availability = await clickHouseCtlAvailability();
+    if (!availability.reachable) {
+      // `installed: false` for a binary that is present just sends people to
+      // reinstall it. Report the two facts separately, and say what to do
+      // about the case reinstalling would not fix.
       return {
-        installed: false,
-        installCommand: "curl https://clickhouse.com/cli | sh",
+        installed: availability.installed,
+        reachable: false,
+        ...(availability.path ? { path: availability.path } : {}),
+        detail: availability.detail,
+        ...(availability.installed
+          ? { fix: "Re-run `bash scripts/launchd/setup` so the MCP server's PATH includes it." }
+          : { installCommand: "curl https://clickhouse.com/cli | sh" }),
       };
     }
 

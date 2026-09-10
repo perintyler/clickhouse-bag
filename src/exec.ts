@@ -167,12 +167,56 @@ function describeUnreachable(): string {
 
 /**
  * Check whether clickhousectl is installed and reachable on PATH.
+ *
+ * Prefer `clickHouseCtlAvailability()` when the answer is shown to someone: a
+ * bare false cannot say whether the binary is absent or merely unreachable,
+ * and those need opposite remedies.
  */
 export async function isClickHouseCtlInstalled(): Promise<boolean> {
-  try {
-    await runClickHouseCtl(["--version"], { timeoutMs: 5_000 });
-    return true;
-  } catch {
-    return false;
+  return (await clickHouseCtlAvailability()).reachable;
+}
+
+export interface ClickHouseCtlAvailability {
+  /** Can this process actually run it? */
+  reachable: boolean;
+  /** Present on disk, even if this process's PATH cannot see it. */
+  installed: boolean;
+  /** Where it was found, when it was found. */
+  path?: string;
+  /** Why it is unavailable — omitted when reachable. */
+  detail?: string;
+}
+
+/**
+ * Report whether clickhousectl can be run, and if not, why.
+ *
+ * Splitting `installed` from `reachable` is the point: reporting
+ * `installed: false` for a binary sitting in ~/.local/bin sent someone to
+ * reinstall a tool they already had, while the actual cause — a launchd PATH
+ * that omits that directory — went unmentioned.
+ */
+export async function clickHouseCtlAvailability(): Promise<ClickHouseCtlAvailability> {
+  const onPath = findClickHouseCtl((process.env.PATH ?? "").split(delimiter));
+  if (onPath) {
+    try {
+      await runClickHouseCtl(["--version"], { timeoutMs: 5_000 });
+      return { reachable: true, installed: true, path: onPath };
+    } catch (e) {
+      // On PATH but not runnable (bad permissions, wrong architecture...).
+      return {
+        reachable: false,
+        installed: true,
+        path: onPath,
+        detail: (e as Error).message,
+      };
+    }
   }
+
+  const elsewhere = findClickHouseCtl(commonInstallDirs());
+  return {
+    reachable: false,
+    installed: elsewhere !== null,
+    ...(elsewhere ? { path: elsewhere } : {}),
+    detail: describeUnreachable(),
+  };
 }

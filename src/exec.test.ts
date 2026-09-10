@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import { runClickHouseCtl } from "./exec.js";
+import { runClickHouseCtl, clickHouseCtlAvailability } from "./exec.js";
 
 let root: string;
 let installDir: string;
@@ -102,6 +102,35 @@ describe("a genuinely absent clickhousectl", () => {
 
     expect(msg).toContain("/opt/homebrew/bin");
     expect(msg).toContain(join(root, "empty-home", ".local/bin"));
+  });
+});
+
+describe("clickHouseCtlAvailability", () => {
+  it("reports an unreachable binary as installed, so callers do not say otherwise", async () => {
+    // What clickhousectl_status got wrong: it collapsed every failure into
+    // `installed: false`, which for a binary sitting in ~/.local/bin is
+    // simply untrue and points at the wrong remedy.
+    const installed = installFake();
+    process.env.HOME = join(root, "home");
+    process.env.PATH = "/bin:/usr/bin";
+
+    const a = await clickHouseCtlAvailability();
+
+    expect(a.installed).toBe(true);
+    expect(a.reachable).toBe(false);
+    expect(a.path).toBe(installed);
+    expect(a.detail).toContain("not on this process's PATH");
+  });
+
+  it("reports a genuinely absent binary as neither installed nor reachable", async () => {
+    process.env.HOME = join(root, "empty-home");
+    process.env.PATH = "/bin:/usr/bin";
+
+    const a = await clickHouseCtlAvailability();
+
+    expect(a.installed).toBe(false);
+    expect(a.reachable).toBe(false);
+    expect(a.detail).toContain("curl https://clickhouse.com/cli | sh");
   });
 });
 
