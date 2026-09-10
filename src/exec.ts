@@ -1,6 +1,6 @@
 import { exec } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { accessSync, constants, existsSync } from "node:fs";
+import { join, dirname, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // No TS parameter properties here — the MCP server imports bag tools under
@@ -49,11 +49,14 @@ function findTokenDir(startDir: string): string | undefined {
 /**
  * Run a clickhousectl command and return parsed output.
  *
- * Uses exec (shell) so the subprocess inherits the user's login environment.
+ * Uses exec (shell) so the command resolves the same way a user's would.
+ * Note the shell inherits THIS process's environment, which under the MCP
+ * server's launchd agent is a minimal one — not your login shell.
  * Sets cwd to a directory containing .clickhouse/tokens.json so clickhousectl
  * can find its stored OAuth token.
  *
- * Throws ClickHouseCtlError if the binary isn't found or the command fails.
+ * Throws ClickHouseCtlError if the binary isn't reachable or the command
+ * fails.
  */
 export function runClickHouseCtl(
   args: string[],
@@ -70,14 +73,22 @@ export function runClickHouseCtl(
     exec(cmd, { timeout: timeoutMs, cwd }, (error, stdout, stderr) => {
       if (error) {
         const msg = stderr.trim() || error.message;
-        if (msg.includes("not found") || msg.includes("No such file")) {
-          reject(
-            new ClickHouseCtlError(
-              "clickhousectl is not installed. Install it: curl https://clickhouse.com/cli | sh",
-              null,
-              "",
-            ),
-          );
+        // `sh` reports an unreachable command and an uninstalled one with the
+        // same "command not found", so the message alone cannot tell them
+        // apart — only probing the filesystem can. And the message is not even
+        // reliable evidence that the lookup was what failed: clickhousectl's
+        // own errors say "not found" too (a missing cloud service, say). So
+        // the resolvable check comes FIRST, and a binary we can actually see
+        // is never blamed on the install.
+        const resolvable = findClickHouseCtl((process.env.PATH ?? "").split(delimiter)) !== null;
+        const lookupFailed =
+          !resolvable &&
+          ((error as NodeJS.ErrnoException).code === "ENOENT" ||
+            msg.includes("not found") ||
+            msg.includes("No such file"));
+
+        if (lookupFailed) {
+          reject(new ClickHouseCtlError(describeUnreachable(), null, stderr));
           return;
         }
         reject(
@@ -92,6 +103,66 @@ export function runClickHouseCtl(
       resolve(stdout.trim());
     });
   });
+}
+
+/**
+ * Directories worth checking for an install this process's PATH cannot see.
+ *
+ * Computed per call rather than at module load: HOME is read from the
+ * environment, and a module-level constant would freeze whatever it happened
+ * to be when the tools were first imported.
+ */
+function commonInstallDirs(): string[] {
+  const home = process.env.HOME;
+  return [
+    ...(home ? [join(home, ".local/bin")] : []),
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+    "/usr/bin",
+  ];
+}
+
+/** First directory on `paths` holding an executable `clickhousectl`. */
+function findClickHouseCtl(paths: string[]): string | null {
+  for (const dir of paths) {
+    if (!dir) continue;
+    const candidate = join(dir, "clickhousectl");
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // Not here; keep looking.
+    }
+  }
+  return null;
+}
+
+/**
+ * Explain a failed lookup without asserting an install state we did not check.
+ *
+ * "Not installed" is only one of the two reasons the shell could not run it,
+ * and the other — installed somewhere this process's PATH does not list — is
+ * the one that reinstalling will not fix.
+ */
+function describeUnreachable(): string {
+  // Only called once the binary is known NOT to resolve on PATH, so the
+  // question left is whether it exists at all.
+  const currentPath = process.env.PATH ?? "";
+  const searched = commonInstallDirs();
+  const elsewhere = findClickHouseCtl(searched);
+  if (elsewhere) {
+    return (
+      `clickhousectl is installed at ${elsewhere} but is not on this process's PATH, ` +
+      `so it cannot be run from here. PATH: ${currentPath}. ` +
+      `If this is the Barry MCP server, re-run \`bash scripts/launchd/setup\` to regenerate its launchd PATH.`
+    );
+  }
+
+  return (
+    `clickhousectl was not found on this process's PATH (${currentPath}) ` +
+    `nor in ${searched.join(", ")}. ` +
+    `Install it: curl https://clickhouse.com/cli | sh`
+  );
 }
 
 /**
