@@ -38,7 +38,6 @@ function findTokenDir(startDir: string): string | undefined {
     if (parent === dir) break;
     dir = parent;
   }
-  // Also check home directory
   const home = process.env.HOME;
   if (home && existsSync(join(home, ".clickhouse", "tokens.json"))) {
     return home;
