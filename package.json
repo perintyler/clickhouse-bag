@@ -4,11 +4,10 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@barry-rocks/sdk-bags": "link:../../barry/sdk/bags",
+    "@barry-rocks/sdk": "link:../../barry/sdk/lib",
     "zod": "3.25.76"
   },
   "devDependencies": {
-    "@barry/bags": "link:../../barry/packages/bags",
     "@types/node": "22.15.0",
     "tsx": "4.23.12",
     "typescript": "5.9.3",
