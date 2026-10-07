@@ -10,7 +10,6 @@ mcp-servers:
   clickhouse:
     type: http
     url: https://mcp.clickhouse.cloud/mcp
-
   # Fallback: official ClickHouse MCP server for direct host/port connections
   # clickhouse-direct:
   #   command: npx
@@ -18,32 +17,22 @@ mcp-servers:
   #   env: [CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD]
 
 
-# Native in-process tools namespace as 'clickhousectl' in code (src/tools.ts).
-# Declared so namespace derivations (auto-traits, doctor, MCP boot checks)
-# know this bag provides the namespace.
-tool-metadata:
-  - { toolName: clickhousectl_status, namespace: clickhousectl, access: read }
-  - { toolName: clickhousectl_local_server_list, namespace: clickhousectl, access: read }
-  - { toolName: clickhousectl_local_server_start, namespace: clickhousectl, access: readwrite }
-  - { toolName: clickhousectl_local_server_stop, namespace: clickhousectl, access: readwrite }
-  - { toolName: clickhousectl_cloud_service_list, namespace: clickhousectl, access: read }
-  - { toolName: clickhousectl_cloud_service_get, namespace: clickhousectl, access: read }
-  - { toolName: clickhousectl_cloud_org_usage, namespace: clickhousectl, access: read }
-
-tools:
-  entry: tools.ts
+  # Native in-process tools namespace as 'clickhousectl' in code (src/tools.ts).
+  # Declared so namespace derivations (auto-traits, doctor, MCP boot checks)
+  # know this bag provides the namespace.
 
 dependencies:
-  - name: clickhousectl
-    install: curl https://clickhouse.com/cli | sh
+  clickhousectl:
     reason: powers all clickhousectl tools
+    install:
+      macos: curl https://clickhouse.com/cli | sh
 
 traits:
   clickhouse-query:
     description: "ClickHouse query execution and schema inspection"
     access: read
-    namespaces: [clickhouse]
+    namespaces: [ clickhouse ]
   clickhouse-infra:
     description: "ClickHouse local and cloud infrastructure management via clickhousectl"
     access: readwrite
-    namespaces: [clickhousectl]
+    namespaces: [ clickhousectl ]
