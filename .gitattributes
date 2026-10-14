@@ -1,0 +1,3 @@
+
+# Upstream Markdown uses trailing spaces for hard line breaks.
+skills/**/*.md whitespace=-blank-at-eol

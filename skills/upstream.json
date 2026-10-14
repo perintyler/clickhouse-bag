@@ -1,0 +1,19 @@
+[
+  {
+    "repository": "https://github.com/ClickHouse/agent-skills.git",
+    "revision": "44b166c55243b63666bae6aab767c99343f8535e",
+    "skills": {
+      "chdb-datastore": "skills/chdb-datastore",
+      "chdb-sql": "skills/chdb-sql",
+      "clickhouse-architecture-advisor": "skills/clickhouse-architecture-advisor",
+      "clickhouse-best-practices": "skills/clickhouse-best-practices",
+      "clickhouse-js-node-coding": "skills/clickhouse-js-node-coding",
+      "clickhouse-js-node-rowbinary": "skills/clickhouse-js-node-rowbinary",
+      "clickhouse-js-node-troubleshooting": "skills/clickhouse-js-node-troubleshooting",
+      "clickhouse-managed-postgres-rca": "skills/clickhouse-managed-postgres-rca",
+      "clickstack-otel-collector": "skills/clickstack-otel-collector",
+      "infra-clickhouse": "skills/infra-clickhouse",
+      "infra-postgres": "skills/infra-postgres"
+    }
+  }
+]
