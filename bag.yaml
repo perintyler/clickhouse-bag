@@ -16,23 +16,16 @@ mcp-servers:
   #   args: ["-y", "@clickhouse/mcp-server"]
   #   env: [CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD]
 
-
-  # Native in-process tools namespace as 'clickhousectl' in code (src/tools.ts).
-  # Declared so namespace derivations (auto-traits, doctor, MCP boot checks)
-  # know this bag provides the namespace.
-
 dependencies:
   clickhousectl:
     reason: powers all clickhousectl tools
     install:
       macos: curl https://clickhouse.com/cli | sh
 
-traits:
-  clickhouse-query:
-    description: "ClickHouse query execution and schema inspection"
-    access: read
-    namespaces: [ clickhouse ]
-  clickhouse-infra:
-    description: "ClickHouse local and cloud infrastructure management via clickhousectl"
-    access: readwrite
-    namespaces: [ clickhousectl ]
+bounds:
+  query-only:
+    description: "ClickHouse query execution and schema inspection only (no clickhousectl infrastructure tools)"
+    bound:
+      tools:
+        allow: [ clickhouse:read ]
+        deny: [ clickhousectl ]
